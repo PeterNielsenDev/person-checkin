@@ -93,6 +93,20 @@ Når guiden er gennemført, kan du åbne dashboardet i Grafana og se personernes
 > fejlen **"Invalid flow specified"** når du kommer til PostgreSQL-trinnet. Det er ikke
 > en fejl i integrationen — luk guiden, tilgå Home Assistant lokalt, og prøv igen.
 
+## Status-sensor
+
+Integrationen opretter en diagnostik-sensor, **`sensor.<navn>_status`**, der viser om den
+rent faktisk virker:
+
+- **`ok`** — seneste forsøg på at skrive en lokation til PostgreSQL lykkedes (sættes også
+  med det samme når opsætningen gennemføres, da det kræver en vellykket forbindelse).
+- **`error`** — seneste skrivning fejlede (se attributten `last_error` for detaljer).
+- **`unknown`** — ingen skrivninger er forsøgt endnu.
+
+Sensoren har derudover attributterne `last_success`, `last_error`, `last_error_time` og
+`pending_points` (antal punkter der afventer genforsøg pga. midlertidige fejl). Den findes
+under **Indstillinger → Enheder & tjenester → Person Check-in → Diagnostik**.
+
 ## Begrænsninger
 
 - Kun `person.*`-entiteter spores (ikke rå `device_tracker.*`).
