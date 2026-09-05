@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Grafana",
+        "description": "Enter the address and login for your Grafana server.",
+        "data": {
+          "host": "IP address / hostname",
+          "port": "Port",
+          "use_ssl": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate",
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "ha_connection": {
+        "title": "Connection back to Home Assistant",
+        "description": "Grafana needs to be able to pull location data from Home Assistant. Enter the URL Grafana can reach Home Assistant on, and a Long-Lived Access Token (create one under your profile in Home Assistant).",
+        "data": {
+          "ha_url": "Home Assistant URL (reachable from Grafana)",
+          "ha_token": "Long-Lived Access Token"
+        }
+      },
+      "dashboard": {
+        "title": "Choose dashboard",
+        "description": "Pick an existing Grafana dashboard to add the location panels to, or create a new one.",
+        "data": {
+          "dashboard_uid": "Dashboard",
+          "dashboard_title": "Name for new dashboard (if creating one)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid Grafana username or password.",
+      "cannot_connect": "Could not connect to Grafana at the given address.",
+      "datasource_failed": "Could not create/find the datasource in Grafana. Make sure the 'Infinity' plugin (yesoreyeram-infinity-datasource) is installed.",
+      "dashboard_failed": "Could not create or update the dashboard in Grafana.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "single_instance_allowed": "Only one connection to Grafana can be configured."
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Forbind til Grafana",
+        "description": "Indtast adressen og login-oplysningerne til din Grafana-server.",
+        "data": {
+          "host": "IP-adresse / hostname",
+          "port": "Port",
+          "use_ssl": "Brug HTTPS",
+          "verify_ssl": "Verificer SSL-certifikat",
+          "username": "Brugernavn",
+          "password": "Adgangskode"
+        }
+      },
+      "ha_connection": {
+        "title": "Forbindelse tilbage til Home Assistant",
+        "description": "Grafana skal kunne hente lokationsdata fra Home Assistant. Angiv den URL Grafana kan nå Home Assistant på, samt et Long-Lived Access Token (oprettes under din profil i Home Assistant).",
+        "data": {
+          "ha_url": "Home Assistant URL (som Grafana kan tilgå)",
+          "ha_token": "Long-Lived Access Token"
+        }
+      },
+      "dashboard": {
+        "title": "Vælg dashboard",
+        "description": "Vælg et eksisterende Grafana-dashboard som lokationspanelerne skal tilføjes til, eller opret et nyt.",
+        "data": {
+          "dashboard_uid": "Dashboard",
+          "dashboard_title": "Navn på nyt dashboard (hvis du opretter et nyt)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Forkert brugernavn eller adgangskode til Grafana.",
+      "cannot_connect": "Kunne ikke forbinde til Grafana på den angivne adresse.",
+      "datasource_failed": "Kunne ikke oprette/finde datasource i Grafana. Tjek at 'Infinity' plugin'et (yesoreyeram-infinity-datasource) er installeret.",
+      "dashboard_failed": "Kunne ikke oprette eller opdatere dashboardet i Grafana.",
+      "unknown": "Der opstod en uventet fejl."
+    },
+    "abort": {
+      "single_instance_allowed": "Der kan kun oprettes én forbindelse til Grafana."
+    }
+  }
+}
