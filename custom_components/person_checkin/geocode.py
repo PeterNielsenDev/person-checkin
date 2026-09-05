@@ -47,13 +47,37 @@ class NominatimRateLimiter:
             self._last_call = time.monotonic()
 
 
+def _format_short_address(address: dict[str, str]) -> str | None:
+    """Build a short, glanceable address from Nominatim's structured fields.
+
+    Deliberately skips neighbourhood/quarter/municipality/state/country -
+    those add noise without helping "where is X right now" at a glance.
+    """
+    road = address.get("road")
+    house_number = address.get("house_number")
+    locality = (
+        address.get("city")
+        or address.get("town")
+        or address.get("village")
+        or address.get("municipality")
+        or address.get("county")
+    )
+    postcode = address.get("postcode")
+
+    street_part = f"{road} {house_number}" if road and house_number else road
+    place_part = f"{postcode} {locality}" if postcode and locality else (locality or postcode)
+
+    parts = [part for part in (street_part, place_part) if part]
+    return ", ".join(parts) if parts else None
+
+
 async def async_reverse_geocode(
     session: aiohttp.ClientSession,
     rate_limiter: NominatimRateLimiter,
     latitude: float,
     longitude: float,
 ) -> str | None:
-    """Look up a human-readable address for a point.
+    """Look up a short, human-readable address for a point.
 
     Best-effort only: returns None on any error, timeout or unexpected
     response instead of raising, so a location point is never dropped or
@@ -68,7 +92,7 @@ async def async_reverse_geocode(
                 "lat": latitude,
                 "lon": longitude,
                 "zoom": 18,
-                "addressdetails": 0,
+                "addressdetails": 1,
             },
             headers={"User-Agent": GEOCODE_USER_AGENT},
             timeout=aiohttp.ClientTimeout(total=GEOCODE_TIMEOUT_SECONDS),
@@ -85,4 +109,4 @@ async def async_reverse_geocode(
         )
         return None
 
-    return data.get("display_name")
+    return _format_short_address(data.get("address", {})) or data.get("display_name")

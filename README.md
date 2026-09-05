@@ -12,8 +12,10 @@ version af Home Assistant, vises et generisk ikon i stedet.
 ## Sådan virker det
 
 1. Integrationen lytter på state-ændringer for alle `person.*`-entiteter i Home Assistant.
-2. Ved ændring i lokation (lat/lon) slås en menneskelæsbar adresse op via
-   [Nominatim](https://nominatim.openstreetmap.org) (OpenStreetMap), og punktet (person,
+2. Ved ændring i lokation (lat/lon) slås en kort, menneskelæsbar adresse op via
+   [Nominatim](https://nominatim.openstreetmap.org) (OpenStreetMap) — bygget af vej,
+   husnummer, postnummer og by (fx `"Floravænget 64, 7730 Thisted"`), ikke Nominatims fulde
+   `display_name` som også indeholder kvarter, kommune, region og land. Punktet (person,
    koordinater, adresse, GPS-nøjagtighed, status, tidspunkt) skrives direkte ind i en tabel
    (`person_checkin_locations`) i din PostgreSQL-database — tabellen oprettes automatisk
    første gang. Adresseopslag er best-effort: fejler det (netværk, rate-limit), skrives
