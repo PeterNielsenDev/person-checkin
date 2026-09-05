@@ -8,9 +8,16 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import MAX_PENDING_POINTS, RETRY_INTERVAL_SECONDS, TRACKED_DOMAIN
+from .const import (
+    GEOCODE_MIN_DISTANCE_METERS,
+    MAX_PENDING_POINTS,
+    RETRY_INTERVAL_SECONDS,
+    TRACKED_DOMAIN,
+)
+from .geocode import NominatimRateLimiter, async_reverse_geocode, haversine_meters
 from .pg import PostgresError, PostgresStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,6 +39,11 @@ class PersonLocationCoordinator:
         self._unsub_state = None
         self._unsub_retry = None
         self._listeners: list[Callable[[], None]] = []
+        self._geocode_rate_limiter = NominatimRateLimiter()
+        # entity_id -> (latitude, longitude, address) last geocoded, so a
+        # stationary person doesn't trigger a fresh Nominatim lookup on
+        # every single state change (e.g. GPS accuracy jitter).
+        self._last_geocoded: dict[str, tuple[float, float, str | None]] = {}
 
         self.last_success: datetime | None = None
         self.last_error: str | None = None
@@ -106,7 +118,27 @@ class PersonLocationCoordinator:
         }
         self._hass.async_create_task(self._async_write(point))
 
+    async def _async_resolve_address(self, point: dict[str, Any]) -> str | None:
+        entity_id = point["entity_id"]
+        latitude, longitude = point["latitude"], point["longitude"]
+
+        cached = self._last_geocoded.get(entity_id)
+        if cached is not None:
+            last_lat, last_lon, last_address = cached
+            if haversine_meters(latitude, longitude, last_lat, last_lon) < (
+                GEOCODE_MIN_DISTANCE_METERS
+            ):
+                return last_address
+
+        session = async_get_clientsession(self._hass)
+        address = await async_reverse_geocode(
+            session, self._geocode_rate_limiter, latitude, longitude
+        )
+        self._last_geocoded[entity_id] = (latitude, longitude, address)
+        return address
+
     async def _async_write(self, point: dict[str, Any]) -> None:
+        point["address"] = await self._async_resolve_address(point)
         try:
             await self._store.async_insert_point(point)
         except PostgresError as err:

@@ -37,3 +37,15 @@ MAX_PENDING_POINTS = 500
 RETRY_INTERVAL_SECONDS = 60
 
 TRACKED_DOMAIN = "person"
+
+# Reverse geocoding (best-effort, via Nominatim's public API).
+NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
+GEOCODE_USER_AGENT = (
+    "HomeAssistant-PersonCheckin/1.0 (+https://github.com/PeterNielsenDev/person-checkin)"
+)
+GEOCODE_TIMEOUT_SECONDS = 10
+# Nominatim's usage policy caps public-instance requests at ~1/second.
+GEOCODE_MIN_INTERVAL_SECONDS = 1.0
+# Skip re-geocoding if the person hasn't moved more than this since the last
+# point stored for them - avoids hammering Nominatim while someone is home.
+GEOCODE_MIN_DISTANCE_METERS = 100

@@ -12,9 +12,14 @@ version af Home Assistant, vises et generisk ikon i stedet.
 ## Sådan virker det
 
 1. Integrationen lytter på state-ændringer for alle `person.*`-entiteter i Home Assistant.
-2. Ved ændring i lokation (lat/lon) skrives et punkt (person, koordinater, GPS-nøjagtighed,
-   status, tidspunkt) direkte ind i en tabel (`person_checkin_locations`) i din PostgreSQL-
-   database — tabellen oprettes automatisk første gang.
+2. Ved ændring i lokation (lat/lon) slås en menneskelæsbar adresse op via
+   [Nominatim](https://nominatim.openstreetmap.org) (OpenStreetMap), og punktet (person,
+   koordinater, adresse, GPS-nøjagtighed, status, tidspunkt) skrives direkte ind i en tabel
+   (`person_checkin_locations`) i din PostgreSQL-database — tabellen oprettes automatisk
+   første gang. Adresseopslag er best-effort: fejler det (netværk, rate-limit), skrives
+   punktet stadig, blot uden adresse. Har personen ikke flyttet sig mere end ~100 meter
+   siden sidste punkt, genbruges den tidligere opslåede adresse i stedet for at spørge
+   Nominatim igen (overholder deres grænse på ca. 1 opslag/sekund).
 3. Integrationen logger ind i Grafana med et **Service Account Token** (Editor-rolle) og
    bruger det til at søge/oprette/opdatere **dashboards** — det er alt et Editor-token må.
    Data source-administration kræver Admin-rolle i Grafana, så den PostgreSQL-datasource i
@@ -117,6 +122,10 @@ under **Indstillinger → Enheder & tjenester → Person Check-in → Diagnostik
 - Kun `person.*`-entiteter spores (ikke rå `device_tracker.*`).
 - Kun én Grafana-/PostgreSQL-forbindelse pr. Home Assistant-installation understøttes i
   denne version.
+- Paneler på et **eksisterende** dashboard fra før v0.4.0 viser ikke adressen — kolonnen
+  findes i databasen, men panelernes SQL skal opdateres manuelt (tilføj `address` til
+  `SELECT`) for at vise den. Nye dashboards oprettet fra opsætningsguiden inkluderer den
+  automatisk.
 - Denne integration er ikke testet mod en levende Grafana/PostgreSQL-instans som del af
   udviklingen af denne kode – test opsætningen i dit eget miljø, og opret gerne et issue
   hvis noget ikke matcher din Grafana-version.

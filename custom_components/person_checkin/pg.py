@@ -20,8 +20,15 @@ CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
     longitude DOUBLE PRECISION NOT NULL,
     gps_accuracy DOUBLE PRECISION,
     source TEXT,
+    address TEXT,
     "time" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+"""
+
+# Installs from before the address column existed need it added on top of
+# their existing table - CREATE TABLE IF NOT EXISTS alone won't do that.
+_ADD_ADDRESS_COLUMN_SQL = f"""
+ALTER TABLE {TABLE_NAME} ADD COLUMN IF NOT EXISTS address TEXT;
 """
 
 _CREATE_INDEX_TIME_SQL = f"""
@@ -35,8 +42,8 @@ CREATE INDEX IF NOT EXISTS idx_{TABLE_NAME}_entity_time
 
 _INSERT_SQL = f"""
 INSERT INTO {TABLE_NAME}
-    (entity_id, name, state, latitude, longitude, gps_accuracy, source, "time")
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    (entity_id, name, state, latitude, longitude, gps_accuracy, source, address, "time")
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 """
 
 
@@ -96,6 +103,7 @@ class PostgresStore:
         )
         async with self._pool.acquire() as conn:
             await conn.execute(_CREATE_TABLE_SQL)
+            await conn.execute(_ADD_ADDRESS_COLUMN_SQL)
             await conn.execute(_CREATE_INDEX_TIME_SQL)
             await conn.execute(_CREATE_INDEX_ENTITY_TIME_SQL)
 
@@ -118,6 +126,7 @@ class PostgresStore:
                     point["longitude"],
                     point["gps_accuracy"],
                     point["source"],
+                    point.get("address"),
                     point["timestamp"],
                 )
         except Exception as err:  # noqa: BLE001

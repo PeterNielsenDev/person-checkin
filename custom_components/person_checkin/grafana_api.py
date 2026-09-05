@@ -94,7 +94,7 @@ class GrafanaClient:
     def _geomap_panel(self, datasource_uid: str, panel_id: int) -> dict[str, Any]:
         raw_sql = (
             "SELECT DISTINCT ON (entity_id)\n"
-            "  entity_id, name, state, latitude, longitude, \"time\"\n"
+            "  entity_id, name, state, latitude, longitude, address, \"time\"\n"
             f"FROM {TABLE_NAME}\n"
             "ORDER BY entity_id, \"time\" DESC"
         )
@@ -137,7 +137,7 @@ class GrafanaClient:
 
     def _table_panel(self, datasource_uid: str, panel_id: int) -> dict[str, Any]:
         raw_sql = (
-            "SELECT name, state, latitude, longitude, gps_accuracy, \"time\"\n"
+            "SELECT name, state, latitude, longitude, gps_accuracy, address, \"time\"\n"
             f"FROM {TABLE_NAME}\n"
             "WHERE $__timeFilter(\"time\")\n"
             "ORDER BY \"time\" DESC\n"
