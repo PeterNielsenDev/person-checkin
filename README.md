@@ -32,6 +32,26 @@ skriver direkte i den database Grafana i forvejen kender.
 - En PostgreSQL-bruger/adgangskode med rettigheder til at oprette tabel/index og indsætte
   rækker i den valgte database (`CREATE TABLE`, `INSERT`).
 
+### Tjekliste: netværk mellem Home Assistant og Postgres/Grafana (samme VLAN)
+
+Kører Postgres i en Docker-container på Grafana-VM'en, skal følgende være i orden, selv når
+de to VM'er er på samme VLAN/subnet:
+
+1. **Port-mapping i docker-compose** — containeren skal eksponere `5432` til VM'ens
+   netværk, ikke kun Docker's interne netværk:
+   ```yaml
+   ports:
+     - "5432:5432"
+   ```
+2. **`listen_addresses`** i `postgresql.conf` skal være `*` (eller VM'ens IP) — det er ofte
+   allerede standard i de officielle Postgres Docker-images.
+3. **`pg_hba.conf`** skal tillade forbindelser fra Home Assistants IP/subnet, fx:
+   ```
+   host    all    all    192.168.1.0/24    scram-sha-256
+   ```
+   (juster til jeres faktiske VLAN-subnet). Uden denne linje afvises forbindelsen, selvom
+   porten er åben.
+
 ## Installation via HACS
 
 1. HACS → tre prikker øverst til højre → "Custom repositories".
