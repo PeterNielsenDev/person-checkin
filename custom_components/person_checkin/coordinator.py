@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.core import Event, HomeAssistant, callback
@@ -35,7 +35,9 @@ class PersonLocationCoordinator:
             "state_changed", self._handle_state_changed
         )
         self._unsub_retry = async_track_time_interval(
-            self._hass, self._async_retry_pending, RETRY_INTERVAL_SECONDS
+            self._hass,
+            self._async_retry_pending,
+            timedelta(seconds=RETRY_INTERVAL_SECONDS),
         )
 
     def async_stop(self) -> None:
