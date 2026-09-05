@@ -13,12 +13,16 @@
           "password": "Password"
         }
       },
-      "ha_connection": {
-        "title": "Connection back to Home Assistant",
-        "description": "Grafana needs to be able to pull location data from Home Assistant. Enter the URL Grafana can reach Home Assistant on, and a Long-Lived Access Token (create one under your profile in Home Assistant).",
+      "database": {
+        "title": "PostgreSQL database",
+        "description": "Enter the PostgreSQL database Grafana uses (e.g. on the same VM). Home Assistant will create a table in it and write location data directly to it.",
         "data": {
-          "ha_url": "Home Assistant URL (reachable from Grafana)",
-          "ha_token": "Long-Lived Access Token"
+          "pg_host": "IP address / hostname",
+          "pg_port": "Port",
+          "pg_database": "Database name",
+          "pg_user": "Username",
+          "pg_password": "Password",
+          "pg_sslmode": "SSL mode"
         }
       },
       "dashboard": {
@@ -33,7 +37,8 @@
     "error": {
       "invalid_auth": "Invalid Grafana username or password.",
       "cannot_connect": "Could not connect to Grafana at the given address.",
-      "datasource_failed": "Could not create/find the datasource in Grafana. Make sure the 'Infinity' plugin (yesoreyeram-infinity-datasource) is installed.",
+      "pg_cannot_connect": "Could not connect to PostgreSQL with the given details.",
+      "datasource_failed": "Could not create/find the PostgreSQL datasource in Grafana.",
       "dashboard_failed": "Could not create or update the dashboard in Grafana.",
       "unknown": "An unexpected error occurred."
     },

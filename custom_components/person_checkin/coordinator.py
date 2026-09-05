@@ -1,4 +1,4 @@
-"""Tracks person.* location changes and persists them locally."""
+"""Tracks person.* location changes and writes them to PostgreSQL."""
 from __future__ import annotations
 
 import logging
@@ -7,36 +7,44 @@ from datetime import datetime, timezone
 from typing import Any
 
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers.storage import Store
+from homeassistant.helpers.event import async_track_time_interval
 
-from .const import MAX_HISTORY_POINTS, STORAGE_KEY, STORAGE_VERSION, TRACKED_DOMAIN
+from .const import MAX_PENDING_POINTS, RETRY_INTERVAL_SECONDS, TRACKED_DOMAIN
+from .pg import PostgresError, PostgresStore
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class PersonLocationStore:
-    """In-memory ring buffer of location points, debounced to disk."""
+class PersonLocationCoordinator:
+    """Listens for person state changes and persists them to Postgres.
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    Failed inserts (e.g. the other VM briefly unreachable) are buffered in
+    memory and retried on a timer, capped at MAX_PENDING_POINTS so a longer
+    outage can't grow memory unbounded.
+    """
+
+    def __init__(self, hass: HomeAssistant, store: PostgresStore) -> None:
         self._hass = hass
-        self._store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
-        self._points: deque[dict[str, Any]] = deque(maxlen=MAX_HISTORY_POINTS)
+        self._store = store
+        self._pending: deque[dict[str, Any]] = deque(maxlen=MAX_PENDING_POINTS)
         self._unsub_state = None
-
-    async def async_load(self) -> None:
-        data = await self._store.async_load()
-        if data:
-            self._points.extend(data.get("points", []))
+        self._unsub_retry = None
 
     def async_start(self) -> None:
         self._unsub_state = self._hass.bus.async_listen(
             "state_changed", self._handle_state_changed
+        )
+        self._unsub_retry = async_track_time_interval(
+            self._hass, self._async_retry_pending, RETRY_INTERVAL_SECONDS
         )
 
     def async_stop(self) -> None:
         if self._unsub_state:
             self._unsub_state()
             self._unsub_state = None
+        if self._unsub_retry:
+            self._unsub_retry()
+            self._unsub_retry = None
 
     @callback
     def _handle_state_changed(self, event: Event) -> None:
@@ -59,20 +67,31 @@ class PersonLocationStore:
             "longitude": longitude,
             "gps_accuracy": new_state.attributes.get("gps_accuracy"),
             "source": new_state.attributes.get("source"),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(timezone.utc),
         }
-        self._points.append(point)
-        self._store.async_delay_save(self._data_to_save, 5)
+        self._hass.async_create_task(self._async_write(point))
 
-    @callback
-    def _data_to_save(self) -> dict[str, Any]:
-        return {"points": list(self._points)}
+    async def _async_write(self, point: dict[str, Any]) -> None:
+        try:
+            await self._store.async_insert_point(point)
+        except PostgresError as err:
+            _LOGGER.warning(
+                "Could not write person location to PostgreSQL, will retry: %s", err
+            )
+            self._pending.append(point)
 
-    def get_all(self) -> list[dict[str, Any]]:
-        return list(self._points)
-
-    def get_latest_per_person(self) -> list[dict[str, Any]]:
-        latest: dict[str, dict[str, Any]] = {}
-        for point in self._points:
-            latest[point["entity_id"]] = point
-        return list(latest.values())
+    async def _async_retry_pending(self, _now) -> None:
+        if not self._pending:
+            return
+        remaining: deque[dict[str, Any]] = deque(maxlen=MAX_PENDING_POINTS)
+        while self._pending:
+            point = self._pending.popleft()
+            try:
+                await self._store.async_insert_point(point)
+            except PostgresError:
+                remaining.append(point)
+        if remaining:
+            _LOGGER.warning(
+                "%d person location point(s) still pending after retry", len(remaining)
+            )
+            self._pending = remaining

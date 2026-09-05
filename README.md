@@ -1,40 +1,36 @@
 # Person Check-in (Grafana)
 
 Custom Home Assistant-integration (HACS) der sporer dine `person.*`-entiteters lokation og
-viser dem live på et Grafana-dashboard (kort + historik-tabel).
+viser dem live på et Grafana-dashboard (kort + historik-tabel), ved at skrive direkte til
+den PostgreSQL-database din Grafana-instans allerede bruger.
 
 ## Sådan virker det
 
-1. Integrationen lytter på state-ændringer for alle `person.*`-entiteter i Home Assistant
-   og gemmer lokation (lat/lon, GPS-nøjagtighed, status) lokalt på disk.
-2. Den eksponerer to JSON-endpoints via Home Assistants egen API:
-   - `/api/person_checkin/latest` – seneste kendte position pr. person
-   - `/api/person_checkin/locations` – fuld historik
+1. Integrationen lytter på state-ændringer for alle `person.*`-entiteter i Home Assistant.
+2. Ved ændring i lokation (lat/lon) skrives et punkt (person, koordinater, GPS-nøjagtighed,
+   status, tidspunkt) direkte ind i en tabel (`person_checkin_locations`) i din PostgreSQL-
+   database — tabellen oprettes automatisk første gang.
 3. Under opsætning opretter integrationen selv (via Grafanas HTTP API, med det
-   brugernavn/password du indtaster) en datasource i Grafana af typen **Infinity**
-   (`yesoreyeram-infinity-datasource`), som peger tilbage på din Home Assistant.
-4. Den opretter derefter et **Geomap**-panel (kort med markører) og et tabelpanel med
-   historik, enten på et nyt dashboard eller føjet til et eksisterende du vælger.
+   brugernavn/password du indtaster) en **PostgreSQL-datasource** i Grafana, der peger på
+   samme database.
+4. Den opretter derefter et **Geomap**-panel (kort med markører for seneste kendte
+   position pr. person) og et tabelpanel med historik, enten på et nyt dashboard eller
+   føjet til et eksisterende du vælger.
+5. Hvis skrivning til PostgreSQL fejler midlertidigt (fx netværksudfald mellem VM'erne),
+   holdes op til 500 punkter i hukommelse og forsøges skrevet igen hvert minut.
 
-Grafana er i sig selv ikke en database, så for at kunne vise live/historiske lokationer
-uden at du skal sætte InfluxDB eller lignende op separat, bruges Home Assistant selv som
-datakilde via Infinity-pluginnet.
+Da din Grafana kører i Docker på en anden VM og allerede bruger PostgreSQL, undgår denne
+løsning at skulle sætte en ekstra tidsserie-database (InfluxDB o.lign.) op — Home Assistant
+skriver direkte i den database Grafana i forvejen kender.
 
 ## Forudsætninger
 
-- En kørende Grafana-server (lokal IP), med en bruger der har rettigheder til at oprette
-  datasources og dashboards (typisk Admin eller Editor).
-- **Infinity-datasource pluginnet** skal være installeret i Grafana:
-  ```
-  grafana-cli plugins install yesoreyeram-infinity-datasource
-  ```
-  (eller via Grafana UI → Administration → Plugins). Integrationen kan ikke installere
-  Grafana-plugins for dig.
-- Et **Long-Lived Access Token** fra din Home Assistant-brugerprofil (Profil → nederst →
-  "Long-Lived Access Tokens" → Opret token). Dette bruges af Grafana til at hente data fra
-  Home Assistant.
-- Home Assistant skal være net-tilgængelig fra Grafana-serveren (angiv den URL Grafana kan
-  nå HA på, fx `http://192.168.1.50:8123`).
+- En kørende Grafana-server (IP på den anden VM), med en bruger der har rettigheder til at
+  oprette datasources og dashboards (typisk Admin eller Editor).
+- PostgreSQL-databasen skal være net-tilgængelig fra din Home Assistant-server (samme VM
+  som Grafana, eller en du kan nå på netværket).
+- En PostgreSQL-bruger/adgangskode med rettigheder til at oprette tabel/index og indsætte
+  rækker i den valgte database (`CREATE TABLE`, `INSERT`).
 
 ## Installation via HACS
 
@@ -48,8 +44,9 @@ datakilde via Infinity-pluginnet.
 
 1. **Grafana-forbindelse**: IP/hostname, port (default 3000), HTTP/HTTPS, brugernavn og
    adgangskode. Integrationen tester login med det samme.
-2. **Forbindelse tilbage til Home Assistant**: den URL Grafana skal bruge for at nå din
-   HA-instans, samt dit Long-Lived Access Token.
+2. **PostgreSQL-database**: IP/hostname, port (default 5432), database-navn, brugernavn,
+   adgangskode og SSL-tilstand. Integrationen tester forbindelsen og opretter
+   PostgreSQL-datasourcen i Grafana.
 3. **Vælg dashboard**: vælg et eksisterende dashboard som lokations-panelerne skal føjes
    til, eller vælg "➕ Opret nyt dashboard" og giv det et navn.
 
@@ -58,9 +55,8 @@ Når guiden er gennemført, kan du åbne dashboardet i Grafana og se personernes
 ## Begrænsninger
 
 - Kun `person.*`-entiteter spores (ikke rå `device_tracker.*`).
-- Lokationshistorik gemmes lokalt i Home Assistants storage og beholder de seneste ~10.000
-  punkter i alt (på tværs af alle personer) – ikke en fuld tidsserie-database.
-- Kun én Grafana-forbindelse pr. Home Assistant-installation understøttes i denne version.
-- Denne integration er ikke testet mod en levende Grafana-instans som del af udviklingen af
-  denne kode – test opsætningen i dit eget miljø, og opret gerne et issue hvis noget ikke
-  matcher din Grafana-version.
+- Kun én Grafana-/PostgreSQL-forbindelse pr. Home Assistant-installation understøttes i
+  denne version.
+- Denne integration er ikke testet mod en levende Grafana/PostgreSQL-instans som del af
+  udviklingen af denne kode – test opsætningen i dit eget miljø, og opret gerne et issue
+  hvis noget ikke matcher din Grafana-version.

@@ -6,7 +6,7 @@ from typing import Any
 
 import aiohttp
 
-from .const import DATASOURCE_NAME, DATASOURCE_TYPE
+from .const import DATASOURCE_NAME, DATASOURCE_TYPE, TABLE_NAME
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -82,15 +82,19 @@ class GrafanaClient:
     async def get_dashboard(self, uid: str) -> dict[str, Any]:
         return await self._request("GET", f"/api/dashboards/uid/{uid}")
 
-    async def is_plugin_installed(self, plugin_id: str = DATASOURCE_TYPE) -> bool:
-        try:
-            await self._request("GET", f"/api/plugins/{plugin_id}/settings")
-            return True
-        except GrafanaApiError:
-            return False
+    async def get_or_create_datasource(
+        self,
+        pg_host: str,
+        pg_port: int,
+        pg_database: str,
+        pg_user: str,
+        pg_password: str,
+        pg_sslmode: str,
+    ) -> str:
+        """Ensure the PostgreSQL datasource pointing at the location table exists.
 
-    async def get_or_create_datasource(self, ha_url: str, ha_token: str) -> str:
-        """Ensure the Infinity datasource pointing at Home Assistant exists. Returns its uid."""
+        Returns its uid.
+        """
         try:
             existing = await self._request(
                 "GET", f"/api/datasources/name/{DATASOURCE_NAME}"
@@ -103,19 +107,31 @@ class GrafanaClient:
             "name": DATASOURCE_NAME,
             "type": DATASOURCE_TYPE,
             "access": "proxy",
-            "url": ha_url,
+            "url": f"{pg_host}:{pg_port}",
+            "user": pg_user,
+            "database": pg_database,
             "jsonData": {
-                "datasourceSecureJson": False,
-                "auth_method": "bearerToken",
+                "sslmode": pg_sslmode,
+                "postgresVersion": 1500,
+                "timescaledb": False,
+                "maxOpenConns": 5,
+                "maxIdleConns": 2,
+                "connMaxLifetime": 14400,
             },
             "secureJsonData": {
-                "bearerToken": ha_token,
+                "password": pg_password,
             },
         }
         result = await self._request("POST", "/api/datasources", json=payload)
         return result["datasource"]["uid"]
 
     def _geomap_panel(self, datasource_uid: str, panel_id: int) -> dict[str, Any]:
+        raw_sql = (
+            "SELECT DISTINCT ON (entity_id)\n"
+            "  entity_id, name, state, latitude, longitude, \"time\"\n"
+            f"FROM {TABLE_NAME}\n"
+            "ORDER BY entity_id, \"time\" DESC"
+        )
         return {
             "id": panel_id,
             "type": "geomap",
@@ -124,31 +140,9 @@ class GrafanaClient:
             "datasource": {"type": DATASOURCE_TYPE, "uid": datasource_uid},
             "targets": [
                 {
-                    "type": "json",
-                    "source": "url",
-                    "url": "${__datasource.url}/api/person_checkin/latest",
-                    "url_options": {"method": "GET"},
+                    "rawSql": raw_sql,
                     "format": "table",
-                    "root_selector": "",
-                    "columns": [
-                        {"selector": "name", "text": "name", "type": "string"},
-                        {"selector": "state", "text": "state", "type": "string"},
-                        {
-                            "selector": "latitude",
-                            "text": "latitude",
-                            "type": "number",
-                        },
-                        {
-                            "selector": "longitude",
-                            "text": "longitude",
-                            "type": "number",
-                        },
-                        {
-                            "selector": "timestamp",
-                            "text": "time",
-                            "type": "timestamp",
-                        },
-                    ],
+                    "rawQuery": True,
                     "refId": "A",
                 }
             ],
@@ -176,6 +170,13 @@ class GrafanaClient:
         }
 
     def _table_panel(self, datasource_uid: str, panel_id: int) -> dict[str, Any]:
+        raw_sql = (
+            "SELECT name, state, latitude, longitude, gps_accuracy, \"time\"\n"
+            f"FROM {TABLE_NAME}\n"
+            "WHERE $__timeFilter(\"time\")\n"
+            "ORDER BY \"time\" DESC\n"
+            "LIMIT 500"
+        )
         return {
             "id": panel_id,
             "type": "table",
@@ -184,36 +185,9 @@ class GrafanaClient:
             "datasource": {"type": DATASOURCE_TYPE, "uid": datasource_uid},
             "targets": [
                 {
-                    "type": "json",
-                    "source": "url",
-                    "url": "${__datasource.url}/api/person_checkin/locations",
-                    "url_options": {"method": "GET"},
+                    "rawSql": raw_sql,
                     "format": "table",
-                    "root_selector": "",
-                    "columns": [
-                        {"selector": "name", "text": "name", "type": "string"},
-                        {"selector": "state", "text": "state", "type": "string"},
-                        {
-                            "selector": "latitude",
-                            "text": "latitude",
-                            "type": "number",
-                        },
-                        {
-                            "selector": "longitude",
-                            "text": "longitude",
-                            "type": "number",
-                        },
-                        {
-                            "selector": "gps_accuracy",
-                            "text": "gps_accuracy",
-                            "type": "number",
-                        },
-                        {
-                            "selector": "timestamp",
-                            "text": "time",
-                            "type": "timestamp",
-                        },
-                    ],
+                    "rawQuery": True,
                     "refId": "A",
                 }
             ],

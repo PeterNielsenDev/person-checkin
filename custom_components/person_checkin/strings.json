@@ -13,12 +13,16 @@
           "password": "Adgangskode"
         }
       },
-      "ha_connection": {
-        "title": "Forbindelse tilbage til Home Assistant",
-        "description": "Grafana skal kunne hente lokationsdata fra Home Assistant. Angiv den URL Grafana kan nå Home Assistant på, samt et Long-Lived Access Token (oprettes under din profil i Home Assistant).",
+      "database": {
+        "title": "PostgreSQL-database",
+        "description": "Angiv den PostgreSQL-database Grafana bruger (fx på samme VM). Home Assistant opretter selv en tabel heri og skriver lokationsdata direkte til den.",
         "data": {
-          "ha_url": "Home Assistant URL (som Grafana kan tilgå)",
-          "ha_token": "Long-Lived Access Token"
+          "pg_host": "IP-adresse / hostname",
+          "pg_port": "Port",
+          "pg_database": "Database-navn",
+          "pg_user": "Brugernavn",
+          "pg_password": "Adgangskode",
+          "pg_sslmode": "SSL-tilstand"
         }
       },
       "dashboard": {
@@ -33,7 +37,8 @@
     "error": {
       "invalid_auth": "Forkert brugernavn eller adgangskode til Grafana.",
       "cannot_connect": "Kunne ikke forbinde til Grafana på den angivne adresse.",
-      "datasource_failed": "Kunne ikke oprette/finde datasource i Grafana. Tjek at 'Infinity' plugin'et (yesoreyeram-infinity-datasource) er installeret.",
+      "pg_cannot_connect": "Kunne ikke forbinde til PostgreSQL med de angivne oplysninger.",
+      "datasource_failed": "Kunne ikke oprette/finde PostgreSQL-datasource i Grafana.",
       "dashboard_failed": "Kunne ikke oprette eller opdatere dashboardet i Grafana.",
       "unknown": "Der opstod en uventet fejl."
     },

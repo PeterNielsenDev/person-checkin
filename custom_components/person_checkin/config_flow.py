@@ -13,21 +13,29 @@ from .const import (
     CONF_DASHBOARD_TITLE,
     CONF_DASHBOARD_UID,
     CONF_DATASOURCE_UID,
-    CONF_HA_TOKEN,
-    CONF_HA_URL,
     CONF_HOST,
     CONF_PASSWORD,
+    CONF_PG_DATABASE,
+    CONF_PG_HOST,
+    CONF_PG_PASSWORD,
+    CONF_PG_PORT,
+    CONF_PG_SSLMODE,
+    CONF_PG_USER,
     CONF_PORT,
     CONF_USE_SSL,
     CONF_USERNAME,
     CONF_VERIFY_SSL,
     CREATE_NEW_DASHBOARD,
+    DEFAULT_PG_SSLMODE,
+    DEFAULT_PG_PORT,
     DEFAULT_PORT,
     DEFAULT_USE_SSL,
     DEFAULT_VERIFY_SSL,
     DOMAIN,
+    PG_SSLMODES,
 )
 from .grafana_api import GrafanaAuthError, GrafanaClient, GrafanaConnectionError
+from .pg import PostgresError, test_connection as pg_test_connection
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -73,7 +81,7 @@ class PersonCheckinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected error validating Grafana connection")
                 errors["base"] = "unknown"
             else:
-                return await self.async_step_ha_connection()
+                return await self.async_step_database()
 
         schema = vol.Schema(
             {
@@ -87,36 +95,54 @@ class PersonCheckinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
-    async def async_step_ha_connection(
+    async def async_step_database(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.FlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             self._data.update(user_input)
             try:
-                client = self._make_client()
-                self._data[CONF_DATASOURCE_UID] = await client.get_or_create_datasource(
-                    self._data[CONF_HA_URL], self._data[CONF_HA_TOKEN]
+                await pg_test_connection(
+                    host=self._data[CONF_PG_HOST],
+                    port=self._data[CONF_PG_PORT],
+                    database=self._data[CONF_PG_DATABASE],
+                    user=self._data[CONF_PG_USER],
+                    password=self._data[CONF_PG_PASSWORD],
+                    sslmode=self._data[CONF_PG_SSLMODE],
                 )
-            except Exception:  # noqa: BLE001
-                _LOGGER.exception("Failed to create Grafana datasource")
-                errors["base"] = "datasource_failed"
+            except PostgresError:
+                errors["base"] = "pg_cannot_connect"
             else:
-                return await self.async_step_dashboard()
+                try:
+                    client = self._make_client()
+                    self._data[CONF_DATASOURCE_UID] = await client.get_or_create_datasource(
+                        pg_host=self._data[CONF_PG_HOST],
+                        pg_port=self._data[CONF_PG_PORT],
+                        pg_database=self._data[CONF_PG_DATABASE],
+                        pg_user=self._data[CONF_PG_USER],
+                        pg_password=self._data[CONF_PG_PASSWORD],
+                        pg_sslmode=self._data[CONF_PG_SSLMODE],
+                    )
+                except Exception:  # noqa: BLE001
+                    _LOGGER.exception("Failed to create Grafana PostgreSQL datasource")
+                    errors["base"] = "datasource_failed"
+                else:
+                    return await self.async_step_dashboard()
 
-        default_url = (
-            self.hass.config.external_url
-            or self.hass.config.internal_url
-            or "http://homeassistant.local:8123"
-        )
         schema = vol.Schema(
             {
-                vol.Required(CONF_HA_URL, default=default_url): str,
-                vol.Required(CONF_HA_TOKEN): str,
+                vol.Required(CONF_PG_HOST, default=self._data.get(CONF_HOST, "")): str,
+                vol.Required(CONF_PG_PORT, default=DEFAULT_PG_PORT): int,
+                vol.Required(CONF_PG_DATABASE): str,
+                vol.Required(CONF_PG_USER): str,
+                vol.Required(CONF_PG_PASSWORD): str,
+                vol.Required(CONF_PG_SSLMODE, default=DEFAULT_PG_SSLMODE): vol.In(
+                    PG_SSLMODES
+                ),
             }
         )
         return self.async_show_form(
-            step_id="ha_connection", data_schema=schema, errors=errors
+            step_id="database", data_schema=schema, errors=errors
         )
 
     async def async_step_dashboard(

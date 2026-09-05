@@ -6,9 +6,17 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
-from .coordinator import PersonLocationStore
-from .http import PersonLatestLocationView, PersonLocationsView
+from .const import (
+    CONF_PG_DATABASE,
+    CONF_PG_HOST,
+    CONF_PG_PASSWORD,
+    CONF_PG_PORT,
+    CONF_PG_SSLMODE,
+    CONF_PG_USER,
+    DOMAIN,
+)
+from .coordinator import PersonLocationCoordinator
+from .pg import PostgresStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,23 +25,31 @@ PLATFORMS: list[str] = []
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Person Check-in from a config entry."""
-    store = PersonLocationStore(hass)
-    await store.async_load()
-    store.async_start()
+    store = PostgresStore(
+        host=entry.data[CONF_PG_HOST],
+        port=entry.data[CONF_PG_PORT],
+        database=entry.data[CONF_PG_DATABASE],
+        user=entry.data[CONF_PG_USER],
+        password=entry.data[CONF_PG_PASSWORD],
+        sslmode=entry.data[CONF_PG_SSLMODE],
+    )
+    await store.async_connect()
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = store
+    coordinator = PersonLocationCoordinator(hass, store)
+    coordinator.async_start()
 
-    if not hass.data[DOMAIN].get("_views_registered"):
-        hass.http.register_view(PersonLocationsView(store))
-        hass.http.register_view(PersonLatestLocationView(store))
-        hass.data[DOMAIN]["_views_registered"] = True
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        "store": store,
+        "coordinator": coordinator,
+    }
 
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    store: PersonLocationStore = hass.data[DOMAIN].pop(entry.entry_id, None)
-    if store:
-        store.async_stop()
+    data = hass.data[DOMAIN].pop(entry.entry_id, None)
+    if data:
+        data["coordinator"].async_stop()
+        await data["store"].async_close()
     return True
