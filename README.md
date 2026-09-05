@@ -86,6 +86,13 @@ de to VM'er er på samme VLAN/subnet:
 
 Når guiden er gennemført, kan du åbne dashboardet i Grafana og se personernes placeringer.
 
+> **Vigtigt:** Gennemfør opsætningsguiden mens du tilgår Home Assistant via dens
+> **lokale IP-adresse/hostname** (fx `http://192.168.1.x:8123`) — **ikke** via en
+> ekstern/public adresse (fx Nabu Casa remote access). Starter du guiden over en
+> ekstern forbindelse, kan flowet miste sin tilstand undervejs, hvilket viser sig som
+> fejlen **"Invalid flow specified"** når du kommer til PostgreSQL-trinnet. Det er ikke
+> en fejl i integrationen — luk guiden, tilgå Home Assistant lokalt, og prøv igen.
+
 ## Begrænsninger
 
 - Kun `person.*`-entiteter spores (ikke rå `device_tracker.*`).
