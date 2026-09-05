@@ -10,11 +10,11 @@ from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
+    CONF_API_TOKEN,
     CONF_DASHBOARD_TITLE,
     CONF_DASHBOARD_UID,
     CONF_DATASOURCE_UID,
     CONF_HOST,
-    CONF_PASSWORD,
     CONF_PG_DATABASE,
     CONF_PG_HOST,
     CONF_PG_PASSWORD,
@@ -23,7 +23,6 @@ from .const import (
     CONF_PG_USER,
     CONF_PORT,
     CONF_USE_SSL,
-    CONF_USERNAME,
     CONF_VERIFY_SSL,
     CREATE_NEW_DASHBOARD,
     DEFAULT_PG_SSLMODE,
@@ -55,8 +54,7 @@ class PersonCheckinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             session,
             host=self._data[CONF_HOST],
             port=self._data[CONF_PORT],
-            username=self._data[CONF_USERNAME],
-            password=self._data[CONF_PASSWORD],
+            api_token=self._data[CONF_API_TOKEN],
             use_ssl=self._data[CONF_USE_SSL],
             verify_ssl=self._data.get(CONF_VERIFY_SSL, True),
         )
@@ -89,8 +87,7 @@ class PersonCheckinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
                 vol.Required(CONF_USE_SSL, default=DEFAULT_USE_SSL): bool,
                 vol.Required(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): bool,
-                vol.Required(CONF_USERNAME): str,
-                vol.Required(CONF_PASSWORD): str,
+                vol.Required(CONF_API_TOKEN): str,
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
@@ -113,21 +110,7 @@ class PersonCheckinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except PostgresError:
                 errors["base"] = "pg_cannot_connect"
             else:
-                try:
-                    client = self._make_client()
-                    self._data[CONF_DATASOURCE_UID] = await client.get_or_create_datasource(
-                        pg_host=self._data[CONF_PG_HOST],
-                        pg_port=self._data[CONF_PG_PORT],
-                        pg_database=self._data[CONF_PG_DATABASE],
-                        pg_user=self._data[CONF_PG_USER],
-                        pg_password=self._data[CONF_PG_PASSWORD],
-                        pg_sslmode=self._data[CONF_PG_SSLMODE],
-                    )
-                except Exception:  # noqa: BLE001
-                    _LOGGER.exception("Failed to create Grafana PostgreSQL datasource")
-                    errors["base"] = "datasource_failed"
-                else:
-                    return await self.async_step_dashboard()
+                return await self.async_step_dashboard()
 
         schema = vol.Schema(
             {
@@ -159,6 +142,7 @@ class PersonCheckinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
 
         if user_input is not None and not errors:
+            self._data[CONF_DATASOURCE_UID] = user_input[CONF_DATASOURCE_UID]
             selection = user_input[CONF_DASHBOARD_UID]
             if selection == CREATE_NEW_DASHBOARD:
                 self._data[CONF_DASHBOARD_TITLE] = user_input.get(
@@ -180,6 +164,9 @@ class PersonCheckinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     options
                 ),
                 vol.Optional(CONF_DASHBOARD_TITLE, default="Person Check-in"): str,
+                vol.Required(
+                    CONF_DATASOURCE_UID, default=self._data.get(CONF_DATASOURCE_UID, "")
+                ): str,
             }
         )
 

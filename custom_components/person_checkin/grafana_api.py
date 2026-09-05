@@ -6,7 +6,7 @@ from typing import Any
 
 import aiohttp
 
-from .const import DATASOURCE_NAME, DATASOURCE_TYPE, TABLE_NAME
+from .const import DATASOURCE_TYPE, TABLE_NAME
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class GrafanaApiError(Exception):
 
 
 class GrafanaAuthError(GrafanaApiError):
-    """Wrong username/password."""
+    """Invalid or insufficiently privileged service account token."""
 
 
 class GrafanaConnectionError(GrafanaApiError):
@@ -24,22 +24,27 @@ class GrafanaConnectionError(GrafanaApiError):
 
 
 class GrafanaClient:
-    """Thin wrapper around Grafana's HTTP API using basic auth."""
+    """Thin wrapper around Grafana's HTTP API using a service account token.
+
+    Only calls endpoints a service account with the Editor role can use
+    (dashboard search/read/write). Managing data sources requires the Admin
+    role in Grafana, so the PostgreSQL datasource must already exist and its
+    uid is supplied by the user instead of being created/looked up here.
+    """
 
     def __init__(
         self,
         session: aiohttp.ClientSession,
         host: str,
         port: int,
-        username: str,
-        password: str,
+        api_token: str,
         use_ssl: bool = False,
         verify_ssl: bool = True,
     ) -> None:
         scheme = "https" if use_ssl else "http"
         self._base_url = f"{scheme}://{host}:{port}"
         self._session = session
-        self._auth = aiohttp.BasicAuth(username, password)
+        self._headers = {"Authorization": f"Bearer {api_token}"}
         self._ssl = None if verify_ssl else False
 
     async def _request(
@@ -51,12 +56,12 @@ class GrafanaClient:
                 method,
                 url,
                 json=json,
-                auth=self._auth,
+                headers=self._headers,
                 ssl=self._ssl,
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as resp:
-                if resp.status == 401:
-                    raise GrafanaAuthError("Invalid Grafana username/password")
+                if resp.status in (401, 403):
+                    raise GrafanaAuthError("Invalid or insufficiently privileged Grafana service account token")
                 if resp.status >= 400:
                     body = await resp.text()
                     raise GrafanaApiError(
@@ -71,8 +76,12 @@ class GrafanaClient:
             raise GrafanaApiError(str(err)) from err
 
     async def test_connection(self) -> None:
-        """Raise if we can't authenticate against Grafana."""
-        await self._request("GET", "/api/org")
+        """Raise if we can't authenticate against Grafana.
+
+        Uses dashboard search rather than an admin-only endpoint, since this
+        must succeed for a service account token with only the Editor role.
+        """
+        await self._request("GET", "/api/search?limit=1")
 
     async def list_dashboards(self) -> list[dict[str, Any]]:
         """Return [{uid, title}, ...] for all dashboards."""
@@ -81,49 +90,6 @@ class GrafanaClient:
 
     async def get_dashboard(self, uid: str) -> dict[str, Any]:
         return await self._request("GET", f"/api/dashboards/uid/{uid}")
-
-    async def get_or_create_datasource(
-        self,
-        pg_host: str,
-        pg_port: int,
-        pg_database: str,
-        pg_user: str,
-        pg_password: str,
-        pg_sslmode: str,
-    ) -> str:
-        """Ensure the PostgreSQL datasource pointing at the location table exists.
-
-        Returns its uid.
-        """
-        try:
-            existing = await self._request(
-                "GET", f"/api/datasources/name/{DATASOURCE_NAME}"
-            )
-            return existing["uid"]
-        except GrafanaApiError:
-            pass
-
-        payload = {
-            "name": DATASOURCE_NAME,
-            "type": DATASOURCE_TYPE,
-            "access": "proxy",
-            "url": f"{pg_host}:{pg_port}",
-            "user": pg_user,
-            "database": pg_database,
-            "jsonData": {
-                "sslmode": pg_sslmode,
-                "postgresVersion": 1500,
-                "timescaledb": False,
-                "maxOpenConns": 5,
-                "maxIdleConns": 2,
-                "connMaxLifetime": 14400,
-            },
-            "secureJsonData": {
-                "password": pg_password,
-            },
-        }
-        result = await self._request("POST", "/api/datasources", json=payload)
-        return result["datasource"]["uid"]
 
     def _geomap_panel(self, datasource_uid: str, panel_id: int) -> dict[str, Any]:
         raw_sql = (

@@ -3,14 +3,13 @@
     "step": {
       "user": {
         "title": "Connect to Grafana",
-        "description": "Enter the address and login for your Grafana server.",
+        "description": "Enter your Grafana server's address and a Service Account Token from a service account with the Editor role (Administration → Users and access → Service accounts).",
         "data": {
           "host": "IP address / hostname",
           "port": "Port",
           "use_ssl": "Use HTTPS",
           "verify_ssl": "Verify SSL certificate",
-          "username": "Username",
-          "password": "Password"
+          "api_token": "Service Account Token"
         }
       },
       "database": {
@@ -27,19 +26,19 @@
       },
       "dashboard": {
         "title": "Choose dashboard",
-        "description": "Pick an existing Grafana dashboard to add the location panels to, or create a new one.",
+        "description": "Pick an existing Grafana dashboard to add the location panels to, or create a new one. Also enter the uid of the PostgreSQL datasource in Grafana that points at the database above (found under Connections → Data sources → click the datasource → the uid is in the URL). An Editor service account cannot create data sources, so it must already exist.",
         "data": {
           "dashboard_uid": "Dashboard",
-          "dashboard_title": "Name for new dashboard (if creating one)"
+          "dashboard_title": "Name for new dashboard (if creating one)",
+          "datasource_uid": "PostgreSQL datasource uid in Grafana"
         }
       }
     },
     "error": {
-      "invalid_auth": "Invalid Grafana username or password.",
+      "invalid_auth": "Invalid or insufficiently privileged Grafana service account token.",
       "cannot_connect": "Could not connect to Grafana at the given address.",
       "pg_cannot_connect": "Could not connect to PostgreSQL with the given details.",
-      "datasource_failed": "Could not create/find the PostgreSQL datasource in Grafana.",
-      "dashboard_failed": "Could not create or update the dashboard in Grafana.",
+      "dashboard_failed": "Could not create or update the dashboard in Grafana. Check that the service account token has the Editor role and that the datasource uid is correct.",
       "unknown": "An unexpected error occurred."
     },
     "abort": {

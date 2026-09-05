@@ -10,12 +10,14 @@ den PostgreSQL-database din Grafana-instans allerede bruger.
 2. Ved ændring i lokation (lat/lon) skrives et punkt (person, koordinater, GPS-nøjagtighed,
    status, tidspunkt) direkte ind i en tabel (`person_checkin_locations`) i din PostgreSQL-
    database — tabellen oprettes automatisk første gang.
-3. Under opsætning opretter integrationen selv (via Grafanas HTTP API, med det
-   brugernavn/password du indtaster) en **PostgreSQL-datasource** i Grafana, der peger på
-   samme database.
-4. Den opretter derefter et **Geomap**-panel (kort med markører for seneste kendte
-   position pr. person) og et tabelpanel med historik, enten på et nyt dashboard eller
-   føjet til et eksisterende du vælger.
+3. Integrationen logger ind i Grafana med et **Service Account Token** (Editor-rolle) og
+   bruger det til at søge/oprette/opdatere **dashboards** — det er alt et Editor-token må.
+   Data source-administration kræver Admin-rolle i Grafana, så den PostgreSQL-datasource i
+   Grafana der peger på databasen, skal allerede findes (oprettet én gang som Admin), og du
+   angiver dens UID i opsætningsguiden.
+4. Integrationen opretter derefter et **Geomap**-panel (kort med markører for seneste
+   kendte position pr. person) og et tabelpanel med historik, enten på et nyt dashboard
+   eller føjet til et eksisterende du vælger.
 5. Hvis skrivning til PostgreSQL fejler midlertidigt (fx netværksudfald mellem VM'erne),
    holdes op til 500 punkter i hukommelse og forsøges skrevet igen hvert minut.
 
@@ -25,12 +27,24 @@ skriver direkte i den database Grafana i forvejen kender.
 
 ## Forudsætninger
 
-- En kørende Grafana-server (IP på den anden VM), med en bruger der har rettigheder til at
-  oprette datasources og dashboards (typisk Admin eller Editor).
+- En kørende Grafana-server (IP på den anden VM).
+- Et **Grafana Service Account** med rollen **Editor**, og et token genereret til det:
+  1. Grafana → **Administration → Users and access → Service accounts**.
+  2. **Add service account** → giv det et navn (fx `person-checkin`) → rolle **Editor**.
+  3. Åbn service accounten → **Add service account token** → kopiér tokenet (vises kun én
+     gang).
+  Editor-rollen er nok til dashboards, men *ikke* til at administrere datasources — det
+  kræver Admin i Grafana, hvorfor punktet nedenfor er nødvendigt.
+- En **PostgreSQL-datasource allerede oprettet i Grafana** (som Admin, én gang), der peger
+  på samme database som Home Assistant skal skrive til. Find dens UID under
+  **Connections → Data sources** → klik datasourcen → UID'et står i browserens adresse-
+  linje (`.../datasources/edit/<uid>`). Det UID skal du bruge i opsætningsguidens sidste
+  trin.
 - PostgreSQL-databasen skal være net-tilgængelig fra din Home Assistant-server (samme VM
   som Grafana, eller en du kan nå på netværket).
-- En PostgreSQL-bruger/adgangskode med rettigheder til at oprette tabel/index og indsætte
-  rækker i den valgte database (`CREATE TABLE`, `INSERT`).
+- En PostgreSQL-bruger/adgangskode (kan være en anden end den Grafana-datasourcen bruger)
+  med rettigheder til at oprette tabel/index og indsætte rækker i den valgte database
+  (`CREATE TABLE`, `INSERT`).
 
 ### Tjekliste: netværk mellem Home Assistant og Postgres/Grafana (samme VLAN)
 
@@ -62,13 +76,13 @@ de to VM'er er på samme VLAN/subnet:
 
 ## Opsætning (guide i UI)
 
-1. **Grafana-forbindelse**: IP/hostname, port (default 3000), HTTP/HTTPS, brugernavn og
-   adgangskode. Integrationen tester login med det samme.
+1. **Grafana-forbindelse**: IP/hostname, port (default 3000), HTTP/HTTPS og
+   Service Account Token. Integrationen tester login med det samme.
 2. **PostgreSQL-database**: IP/hostname, port (default 5432), database-navn, brugernavn,
-   adgangskode og SSL-tilstand. Integrationen tester forbindelsen og opretter
-   PostgreSQL-datasourcen i Grafana.
+   adgangskode og SSL-tilstand. Integrationen tester forbindelsen og opretter tabellen.
 3. **Vælg dashboard**: vælg et eksisterende dashboard som lokations-panelerne skal føjes
-   til, eller vælg "➕ Opret nyt dashboard" og giv det et navn.
+   til, eller vælg "➕ Opret nyt dashboard" og giv det et navn — samt UID'et på den
+   PostgreSQL-datasource i Grafana panelerne skal bruge (se Forudsætninger ovenfor).
 
 Når guiden er gennemført, kan du åbne dashboardet i Grafana og se personernes placeringer.
 

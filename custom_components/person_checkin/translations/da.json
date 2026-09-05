@@ -3,14 +3,13 @@
     "step": {
       "user": {
         "title": "Forbind til Grafana",
-        "description": "Indtast adressen og login-oplysningerne til din Grafana-server.",
+        "description": "Indtast adressen på din Grafana-server og et Service Account Token fra en service account med Editor-rolle (Administration → Users and access → Service accounts).",
         "data": {
           "host": "IP-adresse / hostname",
           "port": "Port",
           "use_ssl": "Brug HTTPS",
           "verify_ssl": "Verificer SSL-certifikat",
-          "username": "Brugernavn",
-          "password": "Adgangskode"
+          "api_token": "Service Account Token"
         }
       },
       "database": {
@@ -27,19 +26,19 @@
       },
       "dashboard": {
         "title": "Vælg dashboard",
-        "description": "Vælg et eksisterende Grafana-dashboard som lokationspanelerne skal tilføjes til, eller opret et nyt.",
+        "description": "Vælg et eksisterende Grafana-dashboard som lokationspanelerne skal tilføjes til, eller opret et nyt. Angiv desuden UID'et på den PostgreSQL-datasource i Grafana der peger på ovenstående database (findes under Connections → Data sources → klik datasourcen → UID står i URL'en). Et Editor service account kan ikke oprette datasources, så den skal allerede findes.",
         "data": {
           "dashboard_uid": "Dashboard",
-          "dashboard_title": "Navn på nyt dashboard (hvis du opretter et nyt)"
+          "dashboard_title": "Navn på nyt dashboard (hvis du opretter et nyt)",
+          "datasource_uid": "UID på PostgreSQL-datasource i Grafana"
         }
       }
     },
     "error": {
-      "invalid_auth": "Forkert brugernavn eller adgangskode til Grafana.",
+      "invalid_auth": "Ugyldigt eller utilstrækkeligt privilegeret Grafana service account token.",
       "cannot_connect": "Kunne ikke forbinde til Grafana på den angivne adresse.",
       "pg_cannot_connect": "Kunne ikke forbinde til PostgreSQL med de angivne oplysninger.",
-      "datasource_failed": "Kunne ikke oprette/finde PostgreSQL-datasource i Grafana.",
-      "dashboard_failed": "Kunne ikke oprette eller opdatere dashboardet i Grafana.",
+      "dashboard_failed": "Kunne ikke oprette eller opdatere dashboardet i Grafana. Tjek at service account-tokenet har Editor-rettigheder, og at datasource-UID'et er korrekt.",
       "unknown": "Der opstod en uventet fejl."
     },
     "abort": {

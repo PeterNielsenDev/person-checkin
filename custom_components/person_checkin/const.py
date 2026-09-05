@@ -6,8 +6,7 @@ CONF_HOST = "host"
 CONF_PORT = "port"
 CONF_USE_SSL = "use_ssl"
 CONF_VERIFY_SSL = "verify_ssl"
-CONF_USERNAME = "username"
-CONF_PASSWORD = "password"
+CONF_API_TOKEN = "api_token"
 CONF_DASHBOARD_UID = "dashboard_uid"
 CONF_DASHBOARD_TITLE = "dashboard_title"
 CONF_DATASOURCE_UID = "datasource_uid"
@@ -29,7 +28,6 @@ PG_SSLMODES = ["disable", "allow", "prefer", "require", "verify-ca", "verify-ful
 CREATE_NEW_DASHBOARD = "__create_new__"
 
 DATASOURCE_TYPE = "postgres"
-DATASOURCE_NAME = "Person Check-in (PostgreSQL)"
 
 TABLE_NAME = "person_checkin_locations"
 
