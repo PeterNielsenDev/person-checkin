@@ -4,6 +4,11 @@ Custom Home Assistant-integration (HACS) der sporer dine `person.*`-entiteters l
 viser dem live på et Grafana-dashboard (kort + historik-tabel), ved at skrive direkte til
 den PostgreSQL-database din Grafana-instans allerede bruger.
 
+Integrationen har sit eget ikon (`custom_components/person_checkin/brand/icon.png`), som
+Home Assistant siden 2026.3.0 kan vise direkte fra integrationens egen mappe — ingen
+separat godkendelse i det centrale brands-repository er nødvendig. Kører du en ældre
+version af Home Assistant, vises et generisk ikon i stedet.
+
 ## Sådan virker det
 
 1. Integrationen lytter på state-ændringer for alle `person.*`-entiteter i Home Assistant.
